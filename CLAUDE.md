@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this repository is
 
-`pefima-backend` is the (future) Spring Boot service for **PeFiMa**, a personal-finance manager whose data currently lives in Notion and is archived in the sibling repository `..\pefima-data`. Right now it is an untouched Spring Initializr skeleton: one `@SpringBootApplication` class, one `contextLoads()` test, and `spring.application.name` in `application.properties`. There are no controllers, entities, persistence, security, or profiles yet, so any architecture you add is the first of its kind. Confirm the approach with the user before introducing a new layer or dependency.
+`pefima-backend` is the (future) Spring Boot service for **PeFiMa**, a personal-finance manager whose data currently lives in Notion and is archived in the sibling repository `..\pefima-data`. So far it only has a read-only data-source layer (see "Data source" below). There are no controllers, services, persistence of its own, security, or profiles yet, so any other architecture you add is the first of its kind. Confirm the approach with the user before introducing a new layer or dependency.
 
 - Remote: `https://github.com/PhucPhan11/pefima-backend.git`, default branch `main`.
 - Commit style so far: Conventional Commits (`feat: ...`).
@@ -16,7 +16,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | Spring Boot | `4.1.1` (parent `spring-boot-starter-parent`; upgraded from 4.0.6 on 2026-10-19) |
 | Java | `21` (`<java.version>` in `pom.xml`) |
 | Build | Maven via wrapper (`mvnw` / `mvnw.cmd`, wrapper 3.3.4, Maven 3.9.14, `only-script` distribution) |
-| Dependencies | `spring-boot-starter`, `spring-boot-starter-test` (JUnit 5, AssertJ, Mockito) |
+| Dependencies | `spring-boot-starter`, `spring-jdbc` (plain, not the starter), `org.xerial:sqlite-jdbc` (pinned via `<sqlite-jdbc.version>`, not in the Boot BOM), `spring-boot-starter-test` (JUnit 5, AssertJ, Mockito) |
 | Coordinates | `com.ceu.pefima:backend:0.0.1-SNAPSHOT`, base package `com.ceu.pefima.backend` |
 
 Let the Boot parent manage dependency versions; don't pin versions that the BOM already covers.
@@ -27,9 +27,10 @@ Run from the repository root in PowerShell:
 
 ```powershell
 .\mvnw.cmd clean verify                                   # compile + all tests + package jar
-.\mvnw.cmd test -Dtest=PefimaBackendApplicationTests      # single test class
+.\mvnw.cmd test -Dtest=SqliteSourcesTest                  # single test class
 .\mvnw.cmd test -Dtest=PefimaBackendApplicationTests#contextLoads   # single test method
 .\mvnw.cmd spring-boot:run                                # run the app (exits immediately: no web starter yet)
+.\mvnw.cmd spring-boot:run "-Dspring-boot.run.arguments=--pefima.source.sqlite.path=../pefima-data/exports/clean/notion-clean.sqlite3"   # run with the SQLite source
 ```
 
 **JDK gotcha:** on this machine `JAVA_HOME` points to JDK 17 (`C:\Program Files\Java\jdk-17`) even though `java` on PATH is Temurin 21. The wrapper uses `JAVA_HOME`, so builds fail with `release version 21 not supported`. Unless the user has fixed it, override it for the command:
@@ -45,12 +46,30 @@ The test run prints a Mockito "self-attaching inline-mock-maker" warning. It's h
 ## Layout
 
 ```text
-src/main/java/com/ceu/pefima/backend/PefimaBackendApplication.java   entry point
-src/main/resources/application.properties                            config (only the app name)
-src/test/java/com/ceu/pefima/backend/PefimaBackendApplicationTests.java  @SpringBootTest smoke test
+src/main/java/com/ceu/pefima/backend/
+  PefimaBackendApplication.java    entry point
+  source/                          read-only ports (*Source interfaces) + exceptions
+  source/model/                    records returned by the ports (BigDecimal, LocalDate, Provenance)
+  source/sqlite/                   adapter over the notion_cleanup SQLite DB + SqliteSourceConfiguration
+src/main/resources/application.properties
+src/test/java/com/ceu/pefima/backend/source/sqlite/   adapter tests + SyntheticCleanupDatabase fixture builder
+src/test/resources/pefima-data/schema-v1.0.sql        verbatim copy of pefima-data/notion_cleanup/schema.sql
 ```
 
-Put new code in sub-packages of `com.ceu.pefima.backend` so component scanning picks it up.
+Put new code in sub-packages of `com.ceu.pefima.backend` so component scanning picks it up. Packages are `@NullMarked` (JSpecify), so mark nullable record components and returns with `@Nullable`.
+
+## Data source
+
+The backend collects data from `pefima-data` through source-agnostic ports in `source/`: `SnapshotSource`, `BudgetEnvelopeSource`, `WalletAccountSource`, `TransactionSource`, and `ReviewIssueSource`. The only adapter so far is `source/sqlite`, which reads the database written by `pefima-data`'s `notion_cleanup` importer through its app-facing views (`budget_envelope_observations`, `wallet_account_observations`, `transaction_observations`) and its `export_snapshots`, `schema_meta`, `conflicts`, and `unknown_fields` tables.
+
+- It's enabled only when `pefima.source.sqlite.path` is set (example commented in `application.properties`). Without it, no source beans exist and the app still starts.
+- It opens the file **read-only** (`SQLiteConfig.setReadOnly`). It fails at startup if the file is missing or `schema_meta.schema_version` isn't `1.0`. Never write to the pefima-data database.
+- The SQLite `DataSource` is deliberately not a bean, so it can't become the app's primary database through auto-configuration. Keep it that way if you add a real database.
+- Every data query takes an explicit `snapshotId`, and an unknown ID throws `UnknownSnapshotException`. Don't add "latest snapshot" defaults; snapshot choice belongs to the user or caller.
+- `ReviewIssue` deliberately omits `conflicts.value_a`/`value_b` (raw financial values). Don't add them.
+- If `schema.sql` in pefima-data changes, refresh `src/test/resources/pefima-data/schema-v1.0.sql` (rename it for a new version) and `SqliteCleanupDatabase.SUPPORTED_SCHEMA_VERSION`.
+- Test with `SyntheticCleanupDatabase` (synthetic IDs and amounts only), never with the real database. As of 2026-10-19 the real local DB holds a single Emergency-Fund-scoped snapshot that is nearly empty (0 transactions, 0 wallets, hundreds of open `missing_page_id` issues), so empty results from it are expected.
+- A future CSV-archive adapter should implement the same ports. It must take an explicit 2026 weekly root rather than picking one.
 
 ## Spring Boot 4 notes
 
