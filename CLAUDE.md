@@ -70,7 +70,7 @@ The backend collects data from `pefima-data` through source-agnostic ports in `s
 - Every data query takes an explicit `snapshotId`, and an unknown ID throws `UnknownSnapshotException`. Don't add "latest snapshot" defaults; snapshot choice belongs to the user or caller.
 - `ReviewIssue` deliberately omits `conflicts.value_a`/`value_b` (raw financial values). Don't add them.
 - If `schema.sql` in pefima-data changes, refresh `src/test/resources/pefima-data/schema-v1.0.sql` (rename it for a new version) and `SqliteCleanupDatabase.SUPPORTED_SCHEMA_VERSION`.
-- Test with `SyntheticCleanupDatabase` (synthetic IDs and amounts only), never with the real database. Since 2026-10-21 the real local DB is built with `notion_cleanup`'s `"mode": "all"` scope and `tools\ingest_weekly_exports.py` in pefima-data: one snapshot per 2026 weekly export, each with all five categories, plus a few open `missing_page_id`/`unresolved_relation` review items per week.
+- Test with `SyntheticCleanupDatabase` (synthetic IDs and amounts only), never with the real database. Since 2026-10-21 the real local DB is built with `notion_cleanup`'s `"mode": "all"` scope and `tools\ingest_weekly_exports.py` in pefima-data: one snapshot per 2026 weekly export plus one per archived year 2022–2025 (nominal export date `<year>-12-31`, so `year` is the data year), each with all five categories (2022 has no Budget). Since the follow-up importer fixes, these snapshots carry no open review items.
 - A future CSV-archive adapter should implement the same ports. It must take an explicit 2026 weekly root rather than picking one.
 
 ## REST API
