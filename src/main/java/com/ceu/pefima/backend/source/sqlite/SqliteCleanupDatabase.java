@@ -19,7 +19,7 @@ import com.ceu.pefima.backend.source.UnknownSnapshotException;
  */
 final class SqliteCleanupDatabase {
 
-    static final String SUPPORTED_SCHEMA_VERSION = "1.0";
+    static final String SUPPORTED_SCHEMA_VERSION = "1.1";
 
     private final Path path;
 

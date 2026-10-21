@@ -8,6 +8,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 import com.ceu.pefima.backend.source.BudgetEnvelopeSource;
+import com.ceu.pefima.backend.source.MonthlyBalanceSource;
 import com.ceu.pefima.backend.source.ReviewIssueSource;
 import com.ceu.pefima.backend.source.SnapshotSource;
 import com.ceu.pefima.backend.source.TransactionSource;
@@ -46,6 +47,11 @@ public class SqliteSourceConfiguration {
     @Bean
     TransactionSource transactionSource(SqliteCleanupDatabase database) {
         return new SqliteTransactionSource(database);
+    }
+
+    @Bean
+    MonthlyBalanceSource monthlyBalanceSource(SqliteCleanupDatabase database) {
+        return new SqliteMonthlyBalanceSource(database);
     }
 
     @Bean

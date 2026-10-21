@@ -9,7 +9,7 @@ import org.springframework.jdbc.datasource.init.ResourceDatabasePopulator;
 import org.springframework.jdbc.core.simple.JdbcClient;
 
 /**
- * Builds a writable {@code notion_cleanup} v1.0 database filled with synthetic
+ * Builds a writable {@code notion_cleanup} v1.1 database filled with synthetic
  * values only. Never put real PeFiMa data here.
  */
 final class SyntheticCleanupDatabase {
@@ -32,6 +32,10 @@ final class SyntheticCleanupDatabase {
 
     static final String TRANSFER = "000000000000000000000000000000d1";
 
+    static final String MARCH_BALANCE = "0000000000000000000000000000ba03";
+
+    static final String YEAR_BALANCE = "0000000000000000000000000000ba00";
+
     private static final String NOW = "2026-01-05T00:00:00+00:00";
 
     private final JdbcClient jdbc;
@@ -41,7 +45,7 @@ final class SyntheticCleanupDatabase {
     private SyntheticCleanupDatabase(Path file) {
         SQLiteDataSource dataSource = new SQLiteDataSource();
         dataSource.setUrl("jdbc:sqlite:" + file.toAbsolutePath());
-        new ResourceDatabasePopulator(new ClassPathResource("pefima-data/schema-v1.0.sql")).execute(dataSource);
+        new ResourceDatabasePopulator(new ClassPathResource("pefima-data/schema-v1.1.sql")).execute(dataSource);
         this.jdbc = JdbcClient.create(dataSource);
     }
 
@@ -103,6 +107,19 @@ final class SyntheticCleanupDatabase {
         field(TRANSFER, "Internal Transactions", "Amount", "5", "5", null);
         relation(TRANSFER, "Internal Transactions", "From", WALLET);
         relation(TRANSFER, "Internal Transactions", "To", BUDGET);
+
+        // Year row first: the source orders Balance rows arbitrarily.
+        page(YEAR_BALANCE, "Balance");
+        field(YEAR_BALANCE, "Balance", "Time", "Year", null, null);
+        field(YEAR_BALANCE, "Balance", "Monthly Income", "1,000", "1000", null);
+        field(YEAR_BALANCE, "Balance", "Monthly Expenses", "12.34", "12.34", null);
+        field(YEAR_BALANCE, "Balance", "Monthly End Balance", "987.66", "987.66", null);
+        field(YEAR_BALANCE, "Balance", "Year End Balance", "987.66", "987.66", null);
+        page(MARCH_BALANCE, "Balance");
+        field(MARCH_BALANCE, "Balance", "Time", "March", null, null);
+        field(MARCH_BALANCE, "Balance", "Monthly Income", "1,000", "1000", null);
+        field(MARCH_BALANCE, "Balance", "Monthly Expenses", "12.34", "12.34", null);
+        field(MARCH_BALANCE, "Balance", "Monthly End Balance", "987.66", "987.66", null);
 
         this.jdbc.sql("""
                 INSERT INTO conflicts(issue_key, snapshot_id, page_id, category, canonical_field, conflict_kind,

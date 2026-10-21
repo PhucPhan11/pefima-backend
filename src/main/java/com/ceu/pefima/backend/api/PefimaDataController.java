@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.ceu.pefima.backend.source.BudgetEnvelopeSource;
+import com.ceu.pefima.backend.source.MonthlyBalanceSource;
 import com.ceu.pefima.backend.source.ReviewIssueSource;
 import com.ceu.pefima.backend.source.SnapshotSource;
 import com.ceu.pefima.backend.source.TransactionSource;
@@ -20,6 +21,7 @@ import com.ceu.pefima.backend.source.UnknownSnapshotException;
 import com.ceu.pefima.backend.source.WalletAccountSource;
 import com.ceu.pefima.backend.source.model.BudgetEnvelope;
 import com.ceu.pefima.backend.source.model.ExportSnapshot;
+import com.ceu.pefima.backend.source.model.MonthlyBalance;
 import com.ceu.pefima.backend.source.model.ReviewIssue;
 import com.ceu.pefima.backend.source.model.SourceContract;
 import com.ceu.pefima.backend.source.model.Transaction;
@@ -45,14 +47,17 @@ class PefimaDataController {
 
     private final ObjectProvider<ReviewIssueSource> reviewIssues;
 
+    private final ObjectProvider<MonthlyBalanceSource> monthlyBalances;
+
     PefimaDataController(ObjectProvider<SnapshotSource> snapshots, ObjectProvider<BudgetEnvelopeSource> budgets,
             ObjectProvider<WalletAccountSource> wallets, ObjectProvider<TransactionSource> transactions,
-            ObjectProvider<ReviewIssueSource> reviewIssues) {
+            ObjectProvider<ReviewIssueSource> reviewIssues, ObjectProvider<MonthlyBalanceSource> monthlyBalances) {
         this.snapshots = snapshots;
         this.budgets = budgets;
         this.wallets = wallets;
         this.transactions = transactions;
         this.reviewIssues = reviewIssues;
+        this.monthlyBalances = monthlyBalances;
     }
 
     @GetMapping("/source/contract")
@@ -92,6 +97,14 @@ class PefimaDataController {
             description = "Expenses, income, and internal transfers, ordered by date (undated first).")
     List<Transaction> listTransactions(@PathVariable @Parameter(description = "Snapshot ID") String snapshotId) {
         return require(this.transactions).findBySnapshot(snapshotId);
+    }
+
+    @GetMapping("/snapshots/{snapshotId}/monthly-balances")
+    @Operation(summary = "List monthly cash-flow summaries in a snapshot",
+            description = "Rows of the Notion Balance database: January to December, then the Year row. "
+                    + "Net is income minus expenses, not an account balance.")
+    List<MonthlyBalance> listMonthlyBalances(@PathVariable @Parameter(description = "Snapshot ID") String snapshotId) {
+        return require(this.monthlyBalances).findBySnapshot(snapshotId);
     }
 
     @GetMapping("/snapshots/{snapshotId}/review-issues")

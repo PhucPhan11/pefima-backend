@@ -15,12 +15,14 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 
 import com.ceu.pefima.backend.source.BudgetEnvelopeSource;
+import com.ceu.pefima.backend.source.MonthlyBalanceSource;
 import com.ceu.pefima.backend.source.ReviewIssueSource;
 import com.ceu.pefima.backend.source.SnapshotSource;
 import com.ceu.pefima.backend.source.TransactionSource;
 import com.ceu.pefima.backend.source.UnknownSnapshotException;
 import com.ceu.pefima.backend.source.WalletAccountSource;
 import com.ceu.pefima.backend.source.model.ExportSnapshot;
+import com.ceu.pefima.backend.source.model.MonthlyBalance;
 import com.ceu.pefima.backend.source.model.Provenance;
 import com.ceu.pefima.backend.source.model.ReviewIssue;
 import com.ceu.pefima.backend.source.model.SourceContract;
@@ -55,6 +57,9 @@ class PefimaDataControllerTest {
 
     @MockitoBean
     private ReviewIssueSource reviewIssues;
+
+    @MockitoBean
+    private MonthlyBalanceSource monthlyBalances;
 
     @Test
     void describesContract() {
@@ -110,9 +115,27 @@ class PefimaDataControllerTest {
         given(this.budgets.findBySnapshot("missing")).willThrow(new UnknownSnapshotException("missing"));
         given(this.wallets.findBySnapshot("missing")).willThrow(new UnknownSnapshotException("missing"));
         given(this.reviewIssues.findBySnapshot("missing")).willThrow(new UnknownSnapshotException("missing"));
+        given(this.monthlyBalances.findBySnapshot("missing")).willThrow(new UnknownSnapshotException("missing"));
         assertThat(this.mvc.get().uri("/api/snapshots/missing/budgets")).hasStatus(HttpStatus.NOT_FOUND);
         assertThat(this.mvc.get().uri("/api/snapshots/missing/wallets")).hasStatus(HttpStatus.NOT_FOUND);
         assertThat(this.mvc.get().uri("/api/snapshots/missing/review-issues")).hasStatus(HttpStatus.NOT_FOUND);
+        assertThat(this.mvc.get().uri("/api/snapshots/missing/monthly-balances")).hasStatus(HttpStatus.NOT_FOUND);
+    }
+
+    @Test
+    void listsMonthlyBalances() {
+        given(this.monthlyBalances.findBySnapshot(SNAPSHOT)).willReturn(List.of(
+                new MonthlyBalance("balance-3", "March", 3, new BigDecimal("1000"), new BigDecimal("12.34"),
+                        new BigDecimal("987.66"), null, PROVENANCE),
+                new MonthlyBalance("balance-year", "Year", null, new BigDecimal("1000"), new BigDecimal("12.34"),
+                        new BigDecimal("987.66"), new BigDecimal("987.66"), PROVENANCE)));
+        assertThat(this.mvc.get().uri("/api/snapshots/{id}/monthly-balances", SNAPSHOT)).hasStatusOk()
+            .bodyJson()
+            .isLenientlyEqualTo("""
+                    [{"balanceId": "balance-3", "period": "March", "month": 3, "income": 1000,
+                      "expenses": 12.34, "net": 987.66, "yearEnd": null},
+                     {"balanceId": "balance-year", "period": "Year", "month": null, "yearEnd": 987.66}]
+                    """);
     }
 
     @Test

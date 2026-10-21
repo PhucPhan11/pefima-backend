@@ -1,6 +1,3 @@
--- Copied verbatim from pefima-data/notion_cleanup/schema.sql (schema_version 1.0).
--- Test fixture only: refresh it when the cleanup contract version changes.
-
 PRAGMA foreign_keys = ON;
 
 CREATE TABLE IF NOT EXISTS schema_meta (
@@ -195,7 +192,51 @@ CREATE INDEX IF NOT EXISTS idx_conflicts_snapshot
 CREATE INDEX IF NOT EXISTS idx_unknown_fields_snapshot
     ON unknown_fields(snapshot_id, page_id, category);
 
-INSERT OR IGNORE INTO schema_meta(key, value) VALUES ('schema_version', '1.0');
+INSERT OR IGNORE INTO schema_meta(key, value) VALUES ('schema_version', '1.1');
+
+-- 1.1 added monthly_balance_observations. Older 1.0 databases are upgraded
+-- in place by notion_cleanup.storage.initialize_database (views only).
+DROP VIEW IF EXISTS monthly_balance_observations;
+CREATE VIEW IF NOT EXISTS monthly_balance_observations AS
+WITH fields AS (
+    SELECT
+        snapshot_id,
+        page_id,
+        MAX(source_root_id) AS source_root_id,
+        MAX(CASE WHEN canonical_field = 'Time'
+            THEN COALESCE(normalized_text, raw_text) END) AS period,
+        MAX(CASE WHEN canonical_field = 'Monthly Income'
+            THEN normalized_decimal END) AS income_decimal,
+        MAX(CASE WHEN canonical_field = 'Monthly Expenses'
+            THEN normalized_decimal END) AS expenses_decimal,
+        MAX(CASE WHEN canonical_field = 'Monthly End Balance'
+            THEN normalized_decimal END) AS net_decimal,
+        MAX(CASE WHEN canonical_field = 'Year End Balance'
+            THEN normalized_decimal END) AS year_end_decimal
+    FROM field_observations
+    WHERE resolution_status = 'resolved'
+    GROUP BY snapshot_id, page_id
+)
+SELECT
+    f.snapshot_id,
+    s.export_date,
+    s.year,
+    f.page_id AS balance_id,
+    f.source_root_id,
+    f.period,
+    CASE f.period
+        WHEN 'January' THEN 1 WHEN 'February' THEN 2 WHEN 'March' THEN 3
+        WHEN 'April' THEN 4 WHEN 'May' THEN 5 WHEN 'June' THEN 6
+        WHEN 'July' THEN 7 WHEN 'August' THEN 8 WHEN 'September' THEN 9
+        WHEN 'October' THEN 10 WHEN 'November' THEN 11 WHEN 'December' THEN 12
+    END AS month_number,
+    f.income_decimal,
+    f.expenses_decimal,
+    f.net_decimal,
+    f.year_end_decimal
+FROM fields f
+JOIN pages p ON p.page_id = f.page_id AND p.category = 'Balance'
+JOIN export_snapshots s ON s.snapshot_id = f.snapshot_id;
 
 DROP VIEW IF EXISTS budget_envelope_observations;
 CREATE VIEW IF NOT EXISTS budget_envelope_observations AS
