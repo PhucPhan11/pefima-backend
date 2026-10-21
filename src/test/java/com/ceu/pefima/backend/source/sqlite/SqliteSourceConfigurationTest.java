@@ -93,7 +93,7 @@ class SqliteSourceConfigurationTest {
         assertThat(writable.jdbc()
             .sql("SELECT value FROM schema_meta WHERE key = 'schema_version'")
             .query(String.class)
-            .single()).isEqualTo("1.1");
+            .single()).isEqualTo("1.2");
     }
 
 }

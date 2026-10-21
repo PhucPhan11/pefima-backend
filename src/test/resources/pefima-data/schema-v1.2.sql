@@ -192,10 +192,11 @@ CREATE INDEX IF NOT EXISTS idx_conflicts_snapshot
 CREATE INDEX IF NOT EXISTS idx_unknown_fields_snapshot
     ON unknown_fields(snapshot_id, page_id, category);
 
-INSERT OR IGNORE INTO schema_meta(key, value) VALUES ('schema_version', '1.1');
+INSERT OR IGNORE INTO schema_meta(key, value) VALUES ('schema_version', '1.2');
 
--- 1.1 added monthly_balance_observations. Older 1.0 databases are upgraded
--- in place by notion_cleanup.storage.initialize_database (views only).
+-- 1.1 added monthly_balance_observations; 1.2 added etf_company to
+-- wallet_account_observations. Older 1.0 and 1.1 databases are upgraded in
+-- place by notion_cleanup.storage.initialize_database (views only).
 DROP VIEW IF EXISTS monthly_balance_observations;
 CREATE VIEW IF NOT EXISTS monthly_balance_observations AS
 WITH fields AS (
@@ -303,6 +304,16 @@ WITH fields AS (
     FROM field_observations
     WHERE resolution_status = 'resolved'
     GROUP BY snapshot_id, page_id
+),
+-- The fund company of a Fund wallet: the title of its "ETF Company" relation
+-- (a page outside the export), never the link itself. One per wallet so far.
+etf_companies AS (
+    SELECT snapshot_id, source_page_id AS page_id,
+           MAX(target_title) AS etf_company
+    FROM relations
+    WHERE canonical_field = 'etf_company'
+      AND target_title IS NOT NULL
+    GROUP BY snapshot_id, source_page_id
 )
 SELECT
     f.snapshot_id,
@@ -317,10 +328,13 @@ SELECT
     f.starting_balance_decimal,
     f.value_decimal,
     CAST(NULL AS TEXT) AS currency_code,
-    CAST(NULL AS TEXT) AS timezone
+    CAST(NULL AS TEXT) AS timezone,
+    c.etf_company
 FROM fields f
 JOIN pages p ON p.page_id = f.page_id AND p.category = 'Wallet Balance'
-JOIN export_snapshots s ON s.snapshot_id = f.snapshot_id;
+JOIN export_snapshots s ON s.snapshot_id = f.snapshot_id
+LEFT JOIN etf_companies c
+    ON c.snapshot_id = f.snapshot_id AND c.page_id = f.page_id;
 
 DROP VIEW IF EXISTS transaction_observations;
 CREATE VIEW IF NOT EXISTS transaction_observations AS

@@ -33,10 +33,10 @@ Run from the repository root in PowerShell:
 .\mvnw.cmd spring-boot:run "-Dspring-boot.run.arguments=--pefima.source.sqlite.path=../pefima-data/exports/clean/notion-clean.sqlite3"   # run with the SQLite source
 ```
 
-**JDK gotcha:** on this machine `JAVA_HOME` points to JDK 17 (`C:\Program Files\Java\jdk-17`) even though `java` on PATH is Temurin 21. The wrapper uses `JAVA_HOME`, so builds fail with `release version 21 not supported`. Unless the user has fixed it, override it for the command:
+**JDK gotcha:** the wrapper uses `JAVA_HOME`, not the `java` on PATH. As of 2026-10-21, `JAVA_HOME` points to Temurin 21 (`C:\Program Files\Eclipse Adoptium\jdk-21.0.10.7-hotspot`), so `.\mvnw.cmd` works as is. Earlier it pointed to JDK 17, and builds failed with `release version 21 not supported`. If that error comes back, override it for the command only:
 
 ```powershell
-$env:JAVA_HOME = 'C:\Program Files\Eclipse Adoptium\jdk-21.0.9.10-hotspot'; .\mvnw.cmd clean verify
+$env:JAVA_HOME = 'C:\Program Files\Eclipse Adoptium\jdk-21.0.10.7-hotspot'; .\mvnw.cmd clean verify
 ```
 
 Don't change system or user environment variables yourself. Tell the user instead.
@@ -55,7 +55,7 @@ src/main/java/com/ceu/pefima/backend/
 src/main/resources/application.properties
 src/test/java/com/ceu/pefima/backend/api/             @WebMvcTest controller tests + OpenAPI/Swagger UI test
 src/test/java/com/ceu/pefima/backend/source/sqlite/   adapter tests + SyntheticCleanupDatabase fixture builder
-src/test/resources/pefima-data/schema-v1.1.sql        verbatim copy of pefima-data/notion_cleanup/schema.sql
+src/test/resources/pefima-data/schema-v1.2.sql        verbatim copy of pefima-data/notion_cleanup/schema.sql
 ```
 
 Put new code in sub-packages of `com.ceu.pefima.backend` so component scanning picks it up. Packages are `@NullMarked` (JSpecify), so mark nullable record components and returns with `@Nullable`.
@@ -65,17 +65,18 @@ Put new code in sub-packages of `com.ceu.pefima.backend` so component scanning p
 The backend collects data from `pefima-data` through source-agnostic ports in `source/`: `SnapshotSource`, `BudgetEnvelopeSource`, `WalletAccountSource`, `TransactionSource`, `MonthlyBalanceSource`, and `ReviewIssueSource`. The only adapter so far is `source/sqlite`, which reads the database written by `pefima-data`'s `notion_cleanup` importer through its app-facing views (`budget_envelope_observations`, `wallet_account_observations`, `transaction_observations`, `monthly_balance_observations`) and its `export_snapshots`, `schema_meta`, `conflicts`, and `unknown_fields` tables.
 
 - It's enabled only when `pefima.source.sqlite.path` is set (example commented in `application.properties`). Without it, no source beans exist and the app still starts.
-- It opens the file **read-only** (`SQLiteConfig.setReadOnly`). It fails at startup if the file is missing or `schema_meta.schema_version` isn't `1.1` (pefima-data's importer upgrades 1.0 databases in place). Never write to the pefima-data database.
+- It opens the file **read-only** (`SQLiteConfig.setReadOnly`). It fails at startup if the file is missing or `schema_meta.schema_version` isn't `1.2` (pefima-data's importer upgrades 1.0 and 1.1 databases in place when it ingests). Never write to the pefima-data database.
 - The SQLite `DataSource` is deliberately not a bean, so it can't become the app's primary database through auto-configuration. Keep it that way if you add a real database.
 - Every data query takes an explicit `snapshotId`, and an unknown ID throws `UnknownSnapshotException`. Don't add "latest snapshot" defaults; snapshot choice belongs to the user or caller.
 - `ReviewIssue` deliberately omits `conflicts.value_a`/`value_b` (raw financial values). Don't add them.
-- If `schema.sql` in pefima-data changes, refresh `src/test/resources/pefima-data/schema-v1.1.sql` (rename it for a new version) and `SqliteCleanupDatabase.SUPPORTED_SCHEMA_VERSION`.
+- If `schema.sql` in pefima-data changes, refresh `src/test/resources/pefima-data/schema-v1.2.sql` (rename it for a new version) and `SqliteCleanupDatabase.SUPPORTED_SCHEMA_VERSION`.
+- `WalletAccount.etfCompany` comes from the view's `etf_company`: the title of a Fund wallet's `ETF Company` relation, a page outside the export. It is a name only; the importer keeps the link in `relations.external_locator`, and the API must never return that link. Titles are written at ingest time (contract 1.2), so a database ingested earlier has `null` here until it is re-ingested.
 - Test with `SyntheticCleanupDatabase` (synthetic IDs and amounts only), never with the real database. Since 2026-10-21 the real local DB is built with `notion_cleanup`'s `"mode": "all"` scope and `tools\ingest_weekly_exports.py` in pefima-data: one snapshot per 2026 weekly export plus one per archived year 2022–2025 (nominal export date `<year>-12-31`, so `year` is the data year), each with all five categories (2022 has no Budget). Since the follow-up importer fixes, these snapshots carry no open review items.
 - A future CSV-archive adapter should implement the same ports. It must take an explicit 2026 weekly root rather than picking one.
 
 ## REST API
 
-`api/PefimaDataController` exposes the ports read-only under `/api`: `GET /api/source/contract`, `GET /api/snapshots`, `GET /api/snapshots/{snapshotId}`, plus `/budgets`, `/wallets`, `/transactions`, `/monthly-balances`, and `/review-issues` under a snapshot. `/monthly-balances` returns the Notion Balance rows (January to December, then `Year`); its `net` is income minus expenses, not an account balance. Swagger UI is at `http://localhost:8080/swagger-ui.html` and the OpenAPI JSON at `/v3/api-docs`.
+`api/PefimaDataController` exposes the ports read-only under `/api`: `GET /api/source/contract`, `GET /api/snapshots`, `GET /api/snapshots/{snapshotId}`, plus `/budgets`, `/wallets`, `/transactions`, `/monthly-balances`, and `/review-issues` under a snapshot. `/monthly-balances` returns the Notion Balance rows (January to December, then `Year`); its `net` is income minus expenses, not an account balance. `/wallets` items carry `etfCompany` (fund company name or `null`). Swagger UI is at `http://localhost:8080/swagger-ui.html` and the OpenAPI JSON at `/v3/api-docs`.
 
 - `server.address=127.0.0.1`: the API serves personal finance data, so it only listens on this machine. Don't widen it without the user's say-so.
 - The controller takes the sources through `ObjectProvider`, so the app (and Swagger UI) starts without `pefima.source.sqlite.path`. Endpoints then answer 503.
@@ -97,7 +98,7 @@ Most online examples target Boot 3. Watch for these differences:
 The backend has no domain model yet. The analysis behind one lives in the data repo. Read these before designing entities or APIs:
 
 - `..\pefima-data\data-structure.md`: section 6 covers row grain and relationships, section 7 has the **proposed normalized schema** (`ExportSnapshot`, `Page`, `WalletAccount`, `BudgetEnvelope`, `Transaction`, `Loan`, `Debt`, `MonthlyBalance`, `Relation`, `ComputedProperty`), and section 9 lists **open questions** that are still unanswered: authoritative 2026 root, currency, timezone, formula materialization, and whether Budget rows are envelopes or accounts. Don't settle those questions in code. Ask the user.
-- `..\pefima-data\notion_cleanup\schema.sql`: the versioned SQLite contract (v1.1) produced by the Notion cleanup importer. This is the most likely data source for the backend.
+- `..\pefima-data\notion_cleanup\schema.sql`: the versioned SQLite contract (v1.2) produced by the Notion cleanup importer. This is the most likely data source for the backend.
 - `..\pefima-data\.github\instructions\notion-field-mapping.instructions.md`: the authoritative field-alias mapping. Don't re-create mappings in Java.
 - `..\pefima-data\CLAUDE.md`: commands and conventions for the Python tools in that repo.
 

@@ -24,6 +24,7 @@ import static com.ceu.pefima.backend.source.sqlite.SyntheticCleanupDatabase.BUDG
 import static com.ceu.pefima.backend.source.sqlite.SyntheticCleanupDatabase.EMERGENCY_TARGET;
 import static com.ceu.pefima.backend.source.sqlite.SyntheticCleanupDatabase.EMPTY_SNAPSHOT;
 import static com.ceu.pefima.backend.source.sqlite.SyntheticCleanupDatabase.EXPENSE;
+import static com.ceu.pefima.backend.source.sqlite.SyntheticCleanupDatabase.FUND_COMPANY;
 import static com.ceu.pefima.backend.source.sqlite.SyntheticCleanupDatabase.INCOME;
 import static com.ceu.pefima.backend.source.sqlite.SyntheticCleanupDatabase.MARCH_BALANCE;
 import static com.ceu.pefima.backend.source.sqlite.SyntheticCleanupDatabase.ROOT;
@@ -54,7 +55,7 @@ class SqliteSourcesTest {
     void describesContract() {
         assertThat(new SqliteSnapshotSource(this.database).describeContract())
             .satisfies((contract) -> {
-                assertThat(contract.schemaVersion()).isEqualTo("1.1");
+                assertThat(contract.schemaVersion()).isEqualTo("1.2");
                 assertThat(contract.mappingFileHash()).isEqualTo("mapping-hash-0001");
             });
     }
@@ -77,10 +78,10 @@ class SqliteSourcesTest {
     }
 
     @Test
-    void readsWalletAccounts() {
+    void readsWalletAccountsWithTheirFundCompanyTitleOnly() {
         assertThat(new SqliteWalletAccountSource(this.database).findBySnapshot(SNAPSHOT)).containsExactly(
                 new WalletAccount(WALLET, "Synthetic Wallet", "[\"Cash\"]", "Yes", new BigDecimal("42.00"), null,
-                        new BigDecimal("42.00"), null, null, PROVENANCE));
+                        new BigDecimal("42.00"), null, null, FUND_COMPANY, PROVENANCE));
     }
 
     @Test

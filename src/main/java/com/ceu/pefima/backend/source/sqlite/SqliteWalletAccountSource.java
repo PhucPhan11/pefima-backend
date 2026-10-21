@@ -27,7 +27,8 @@ final class SqliteWalletAccountSource implements WalletAccountSource {
                     rs.getString("labels_json"), rs.getString("active_raw"),
                     SqliteRows.decimal(rs, "available_balance_decimal"),
                     SqliteRows.decimal(rs, "starting_balance_decimal"), SqliteRows.decimal(rs, "value_decimal"),
-                    rs.getString("currency_code"), rs.getString("timezone"), SqliteRows.provenance(rs)))
+                    rs.getString("currency_code"), rs.getString("timezone"), rs.getString("etf_company"),
+                    SqliteRows.provenance(rs)))
             .list();
     }
 

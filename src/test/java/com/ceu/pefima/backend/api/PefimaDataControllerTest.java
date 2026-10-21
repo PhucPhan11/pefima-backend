@@ -28,6 +28,7 @@ import com.ceu.pefima.backend.source.model.ReviewIssue;
 import com.ceu.pefima.backend.source.model.SourceContract;
 import com.ceu.pefima.backend.source.model.Transaction;
 import com.ceu.pefima.backend.source.model.TransactionKind;
+import com.ceu.pefima.backend.source.model.WalletAccount;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.BDDMockito.given;
@@ -90,6 +91,22 @@ class PefimaDataControllerTest {
             .bodyJson()
             .isLenientlyEqualTo("""
                     {"status": 404, "title": "Unknown snapshot", "detail": "Unknown export snapshot: missing"}
+                    """);
+    }
+
+    @Test
+    void listsWalletsWithTheirFundCompany() {
+        WalletAccount fund = new WalletAccount("wallet-1", "Synthetic Fund", "Fund", "Active",
+                new BigDecimal("250.00"), null, null, null, null, "Synthetic Fund Co", PROVENANCE);
+        WalletAccount bank = new WalletAccount("wallet-2", "Synthetic Bank", "Bank", "Active",
+                new BigDecimal("10.00"), null, null, null, null, null, PROVENANCE);
+        given(this.wallets.findBySnapshot(SNAPSHOT)).willReturn(List.of(fund, bank));
+        assertThat(this.mvc.get().uri("/api/snapshots/{id}/wallets", SNAPSHOT)).hasStatusOk()
+            .bodyJson()
+            .isLenientlyEqualTo("""
+                    [{"accountId": "wallet-1", "labelsJson": "Fund", "availableBalance": 250.00,
+                      "etfCompany": "Synthetic Fund Co"},
+                     {"accountId": "wallet-2", "etfCompany": null}]
                     """);
     }
 

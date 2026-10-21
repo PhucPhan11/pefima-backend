@@ -9,7 +9,7 @@ import org.springframework.jdbc.datasource.init.ResourceDatabasePopulator;
 import org.springframework.jdbc.core.simple.JdbcClient;
 
 /**
- * Builds a writable {@code notion_cleanup} v1.1 database filled with synthetic
+ * Builds a writable {@code notion_cleanup} v1.2 database filled with synthetic
  * values only. Never put real PeFiMa data here.
  */
 final class SyntheticCleanupDatabase {
@@ -25,6 +25,8 @@ final class SyntheticCleanupDatabase {
     static final String EMERGENCY_TARGET = "000000000000000000000000000000f1";
 
     static final String WALLET = "000000000000000000000000000000a1";
+
+    static final String FUND_COMPANY = "Synthetic Fund Co";
 
     static final String EXPENSE = "000000000000000000000000000000e1";
 
@@ -45,7 +47,7 @@ final class SyntheticCleanupDatabase {
     private SyntheticCleanupDatabase(Path file) {
         SQLiteDataSource dataSource = new SQLiteDataSource();
         dataSource.setUrl("jdbc:sqlite:" + file.toAbsolutePath());
-        new ResourceDatabasePopulator(new ClassPathResource("pefima-data/schema-v1.1.sql")).execute(dataSource);
+        new ResourceDatabasePopulator(new ClassPathResource("pefima-data/schema-v1.2.sql")).execute(dataSource);
         this.jdbc = JdbcClient.create(dataSource);
     }
 
@@ -87,6 +89,7 @@ final class SyntheticCleanupDatabase {
         field(WALLET, "Wallet Balance", "wallet_active", "Yes", null, null);
         field(WALLET, "Wallet Balance", "Available Balance", "42.00", "42.00", null);
         field(WALLET, "Wallet Balance", "wallet_value", "42.00", "42.00", null);
+        externalRelation(WALLET, "Wallet Balance", "etf_company", FUND_COMPANY);
 
         page(EXPENSE, "Expenses");
         field(EXPENSE, "Expenses", "Name", "Synthetic lunch", null, null);
@@ -171,6 +174,20 @@ final class SyntheticCleanupDatabase {
                 """)
             .params("relation-" + this.relationCount, SNAPSHOT, sourcePageId, ROOT, category, canonicalField,
                     canonicalField, targetPageId)
+            .update();
+    }
+
+    /** A titled target outside the export, as the importer stores a "Name (link)" cell. */
+    private void externalRelation(String sourcePageId, String category, String canonicalField, String title) {
+        this.relationCount++;
+        this.jdbc.sql("""
+                INSERT INTO relations(relation_id, snapshot_id, source_page_id, source_root_id, source_view,
+                    category, canonical_field, source_field, ordinal, target_title, external_locator, is_external,
+                    resolution_status)
+                VALUES (?, ?, ?, ?, 'all', ?, ?, ?, 0, ?, 'https://example.invalid/synthetic', 1, 'external')
+                """)
+            .params("relation-" + this.relationCount, SNAPSHOT, sourcePageId, ROOT, category, canonicalField,
+                    canonicalField, title)
             .update();
     }
 
