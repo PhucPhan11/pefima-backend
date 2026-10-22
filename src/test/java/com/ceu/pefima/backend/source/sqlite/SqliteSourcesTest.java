@@ -22,6 +22,7 @@ import com.ceu.pefima.backend.source.model.WalletAccount;
 
 import static com.ceu.pefima.backend.source.sqlite.SyntheticCleanupDatabase.BUDGET;
 import static com.ceu.pefima.backend.source.sqlite.SyntheticCleanupDatabase.EMERGENCY_TARGET;
+import static com.ceu.pefima.backend.source.sqlite.SyntheticCleanupDatabase.EMERGENCY_WALLET;
 import static com.ceu.pefima.backend.source.sqlite.SyntheticCleanupDatabase.EMPTY_SNAPSHOT;
 import static com.ceu.pefima.backend.source.sqlite.SyntheticCleanupDatabase.EXPENSE;
 import static com.ceu.pefima.backend.source.sqlite.SyntheticCleanupDatabase.FUND_COMPANY;
@@ -78,10 +79,12 @@ class SqliteSourcesTest {
     }
 
     @Test
-    void readsWalletAccountsWithTheirFundCompanyTitleOnly() {
+    void readsWalletAccountsWithTheirFundCompanyTitleAndEmergencyFlagOnly() {
         assertThat(new SqliteWalletAccountSource(this.database).findBySnapshot(SNAPSHOT)).containsExactly(
                 new WalletAccount(WALLET, "Synthetic Wallet", "[\"Cash\"]", "Yes", new BigDecimal("42.00"), null,
-                        new BigDecimal("42.00"), null, null, FUND_COMPANY, PROVENANCE));
+                        new BigDecimal("42.00"), null, null, FUND_COMPANY, false, PROVENANCE),
+                new WalletAccount(EMERGENCY_WALLET, "Synthetic Bank", null, null, new BigDecimal("7.00"), null, null,
+                        null, null, null, true, PROVENANCE));
     }
 
     @Test

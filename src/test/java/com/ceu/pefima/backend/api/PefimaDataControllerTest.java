@@ -95,18 +95,18 @@ class PefimaDataControllerTest {
     }
 
     @Test
-    void listsWalletsWithTheirFundCompany() {
+    void listsWalletsWithTheirFundCompanyAndEmergencyFlag() {
         WalletAccount fund = new WalletAccount("wallet-1", "Synthetic Fund", "Fund", "Active",
-                new BigDecimal("250.00"), null, null, null, null, "Synthetic Fund Co", PROVENANCE);
+                new BigDecimal("250.00"), null, null, null, null, "Synthetic Fund Co", false, PROVENANCE);
         WalletAccount bank = new WalletAccount("wallet-2", "Synthetic Bank", "Bank", "Active",
-                new BigDecimal("10.00"), null, null, null, null, null, PROVENANCE);
+                new BigDecimal("10.00"), null, null, null, null, null, true, PROVENANCE);
         given(this.wallets.findBySnapshot(SNAPSHOT)).willReturn(List.of(fund, bank));
         assertThat(this.mvc.get().uri("/api/snapshots/{id}/wallets", SNAPSHOT)).hasStatusOk()
             .bodyJson()
             .isLenientlyEqualTo("""
                     [{"accountId": "wallet-1", "labelsJson": "Fund", "availableBalance": 250.00,
-                      "etfCompany": "Synthetic Fund Co"},
-                     {"accountId": "wallet-2", "etfCompany": null}]
+                      "etfCompany": "Synthetic Fund Co", "emergencyFundAllocation": false},
+                     {"accountId": "wallet-2", "etfCompany": null, "emergencyFundAllocation": true}]
                     """);
     }
 

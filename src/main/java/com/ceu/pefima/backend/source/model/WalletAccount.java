@@ -12,9 +12,12 @@ import org.jspecify.annotations.Nullable;
  * @param activeRaw the source's active flag text, uninterpreted
  * @param etfCompany the title of a Fund wallet's "ETF Company" relation, never
  * its link
+ * @param emergencyFundAllocation whether the wallet carries Notion's "🏹 EmerFund
+ * Allocation" relation, i.e. holds Emergency Fund money; the relation's target is
+ * never returned
  */
 public record WalletAccount(String accountId, @Nullable String name, @Nullable String labelsJson,
         @Nullable String activeRaw, @Nullable BigDecimal availableBalance, @Nullable BigDecimal startingBalance,
         @Nullable BigDecimal value, @Nullable String currencyCode, @Nullable String timezone,
-        @Nullable String etfCompany, Provenance provenance) {
+        @Nullable String etfCompany, boolean emergencyFundAllocation, Provenance provenance) {
 }

@@ -26,6 +26,8 @@ final class SyntheticCleanupDatabase {
 
     static final String WALLET = "000000000000000000000000000000a1";
 
+    static final String EMERGENCY_WALLET = "000000000000000000000000000000a2";
+
     static final String FUND_COMPANY = "Synthetic Fund Co";
 
     static final String EXPENSE = "000000000000000000000000000000e1";
@@ -90,6 +92,12 @@ final class SyntheticCleanupDatabase {
         field(WALLET, "Wallet Balance", "Available Balance", "42.00", "42.00", null);
         field(WALLET, "Wallet Balance", "wallet_value", "42.00", "42.00", null);
         externalRelation(WALLET, "Wallet Balance", "etf_company", FUND_COMPANY);
+
+        page(EMERGENCY_WALLET, "Wallet Balance");
+        field(EMERGENCY_WALLET, "Wallet Balance", "Wallet", "Synthetic Bank", null, null);
+        field(EMERGENCY_WALLET, "Wallet Balance", "Available Balance", "7.00", "7.00", null);
+        // Like the real export, the allocation target is an untitled page outside the export.
+        externalRelation(EMERGENCY_WALLET, "Wallet Balance", "emergency_fund_allocation_relation", null);
 
         page(EXPENSE, "Expenses");
         field(EXPENSE, "Expenses", "Name", "Synthetic lunch", null, null);
