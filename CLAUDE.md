@@ -83,6 +83,7 @@ The backend collects data from `pefima-data` through source-agnostic ports in `s
 - `ApiExceptionHandler` maps `UnknownSnapshotException` to 404, the missing source to 503, and other `PefimaSourceException`s to 500. All of these use `ProblemDetail` responses. Source exception messages are value-free, so it's safe to return them; keep them that way.
 - Controller tests use `@WebMvcTest` + `@MockitoBean` + `MockMvcTester` with synthetic records. In Boot 4, `WebMvcTest`/`AutoConfigureMockMvc` live in `org.springframework.boot.webmvc.test.autoconfigure`.
 - In this app, `.claude/launch.json` (in the parent `pefima` folder) runs the built jar on port 8080 with the SQLite source. Rebuild the jar (`.\mvnw.cmd package`) before relaunching.
+- In IntelliJ, the shared run configs in `.run/` cover the same setup: `Pefima Backend` (Spring Boot with the SQLite source), `Pefima Frontend` (`npm run dev` in `../pefima-frontend`), and the compound `Pefima All`, which starts both.
 
 ## Spring Boot 4 notes
 
