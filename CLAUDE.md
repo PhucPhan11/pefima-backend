@@ -13,9 +13,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 | Item | Value |
 |---|---|
-| Spring Boot | `4.1.1` (parent `spring-boot-starter-parent`; upgraded from 4.0.6 on 2026-10-19) |
-| Java | `21` (`<java.version>` in `pom.xml`) |
-| Build | Maven via wrapper (`mvnw` / `mvnw.cmd`, wrapper 3.3.4, Maven 3.9.14, `only-script` distribution) |
+| Spring Boot | `4.1.2` (parent `spring-boot-starter-parent`; upgraded from 4.0.6 on 2026-10-19 and from 4.1.1 on 2026-10-22). Boot 4.1 is officially compatible only up to Java 26; the user chose Java 27 anyway on 2026-10-22 (it builds, tests and runs). Move to Boot 4.2.0, which lists Java 27, once it is GA |
+| Java | `27` (`<java.version>` in `pom.xml`; moved from 21 on 2026-10-22), through a JDK toolchain (see "JDK toolchain" below) |
+| Build | Maven via wrapper (`mvnw` / `mvnw.cmd`, wrapper 3.3.4, Maven 3.9.14, `only-script` distribution), plus `maven-toolchains-plugin` (`select-jdk-toolchain`; pinned via `<maven-toolchains-plugin.version>`, not in the Boot BOM) |
 | Dependencies | `spring-boot-starter`, `spring-boot-starter-webmvc`, `springdoc-openapi-starter-webmvc-ui` (pinned via `<springdoc.version>`; the 3.x line is the one for Boot 4), `spring-jdbc` (plain, not the starter), `org.xerial:sqlite-jdbc` (pinned via `<sqlite-jdbc.version>`, not in the Boot BOM), `spring-boot-starter-test` (JUnit 5, AssertJ, Mockito) |
 | Coordinates | `com.ceu.pefima:backend:0.0.1-SNAPSHOT`, base package `com.ceu.pefima.backend` |
 
@@ -33,13 +33,24 @@ Run from the repository root in PowerShell:
 .\mvnw.cmd spring-boot:run "-Dspring-boot.run.arguments=--pefima.source.sqlite.path=../pefima-data/exports/clean/notion-clean.sqlite3"   # run with the SQLite source
 ```
 
-**JDK gotcha:** the wrapper uses `JAVA_HOME`, not the `java` on PATH. As of 2026-10-21, `JAVA_HOME` points to Temurin 21 (`C:\Program Files\Eclipse Adoptium\jdk-21.0.10.7-hotspot`), so `.\mvnw.cmd` works as is. Earlier it pointed to JDK 17, and builds failed with `release version 21 not supported`. If that error comes back, override it for the command only:
+**JDK toolchain:** the wrapper runs Maven on `JAVA_HOME`, not the `java` on PATH, and `JAVA_HOME` stays on Temurin 21 (`C:\Program Files\Eclipse Adoptium\jdk-21.0.10.7-hotspot`) by the user's choice. The `maven-toolchains-plugin` goal `select-jdk-toolchain` then picks a JDK of at least `java.version` (27) for the compiler, Surefire and `spring-boot:run`.
+- It discovers JDKs in `JAVA*_HOME` variables, `~/.jdks`, `C:\Program Files\Eclipse Adoptium` and `C:\Program Files\Java`, and caches them in `~/.m2/discovered-jdk-toolchains-cache.xml`. On this machine it finds Azul Zulu 27 in `C:\Users\phucp\.jdks\azul-27` (downloaded by IntelliJ). The build log names the JDK it picked.
+- If it finds no JDK 27, the build fails at `validate`. Install one in a scanned folder or set `JAVA27_HOME`.
+- The jar holds Java 27 class files (major version 71), so `java -jar` needs the `java` of a JDK 27, not the Temurin 21 one on PATH:
 
 ```powershell
-$env:JAVA_HOME = 'C:\Program Files\Eclipse Adoptium\jdk-21.0.10.7-hotspot'; .\mvnw.cmd clean verify
+& "$env:USERPROFILE\.jdks\azul-27\bin\java.exe" -jar target\backend-0.0.1-SNAPSHOT.jar --pefima.source.sqlite.path=../pefima-data/exports/clean/notion-clean.sqlite3
 ```
 
+- The IDEs don't use the toolchain. IntelliJ's project SDK is `azul-27` (`.idea/misc.xml`, local). The VS Code workspace `../pefima-frontend/pefima.code-workspace` maps `JavaSE-27` to the same folder with `java.configuration.runtimes`, because VS Code Java doesn't scan `~/.jdks`.
+
 Don't change system or user environment variables yourself. Tell the user instead.
+
+**Native access:** sqlite-jdbc loads its native library with `System.load`. JDK 24+ warns about that ("restricted method"), and a later JDK will block it. So every way of running passes `--enable-native-access=ALL-UNNAMED`; keep them in sync when you add another:
+- the `native-access` property in `pom.xml`, used by Surefire's `argLine` and `spring-boot:run`'s `jvmArguments`;
+- `Enable-Native-Access: ALL-UNNAMED` in the jar manifest (`maven-jar-plugin`, kept by Boot's repackage), so `java -jar` needs no flag;
+- `VM_PARAMETERS` in `.run/Pefima Backend.run.xml`;
+- `vmArgs` of the backend launch in the VS Code workspace.
 
 The test run prints a Mockito "self-attaching inline-mock-maker" warning. It's harmless for now.
 
