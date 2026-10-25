@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this repository is
 
-`pefima-backend` is the (future) Spring Boot service for **PeFiMa**, a personal-finance manager whose data currently lives in Notion and is archived in the sibling repository `..\pefima-data`. So far it has a read-only data-source layer (see "Data source"), a read-only REST API with Swagger UI on top of it (see "REST API"), and live market prices for gold and foreign currencies (see "Market prices"). There is no persistence of its own, security, or profiles yet, so any other architecture you add is the first of its kind. Confirm the approach with the user before introducing a new layer or dependency.
+`pefima-backend` is the (future) Spring Boot service for **PeFiMa**, a personal-finance manager whose data currently lives in Notion and is archived in the sibling repository `..\pefima-data`. So far it has a read-only data-source layer (see "Data source"), a read-only REST API with Swagger UI on top of it (see "REST API"), live market prices for gold and foreign currencies (see "Market prices"), and an investment profile advisor with a local LLM (see "Investment profile advisor"). There is no persistence of its own, security, or profiles yet, so any other architecture you add is the first of its kind. Confirm the approach with the user before introducing a new layer or dependency.
 
 - Remote: `https://github.com/PhucPhan11/pefima-backend.git`, default branch `main`.
 - Commit style so far: Conventional Commits (`feat: ...`).
@@ -65,6 +65,7 @@ src/main/java/com/ceu/pefima/backend/
   source/sqlite/                   adapter over the notion_cleanup SQLite DB + SqliteSourceConfiguration
   market/                          gold price (PNJ) and exchange rates (Vietcombank), the only outbound HTTP calls,
                                    + MarketConfiguration / FxConfiguration and the shared MarketHttp client
+  advisor/                         risk scenarios + local LLM review (LM Studio on loopback) + AdvisorConfiguration
 src/main/resources/application.properties
 pefima-local.properties            git-ignored local settings (real holdings), imported by application.properties
 src/test/java/com/ceu/pefima/backend/api/             @WebMvcTest controller tests + OpenAPI/Swagger UI test
@@ -115,6 +116,28 @@ The backend collects data from `pefima-data` through source-agnostic ports in `s
   - The feed asks for at most one request every 5 minutes, so `ExchangeRateService` never caches for less than that (`pefima.fx.cache-ttl`, default 15 minutes).
   - The backend returns rates only. Which wallet holds which currency is the frontend's `PEFIMA_FX_WALLETS`.
 - Test it with `MockRestServiceServer` and synthetic prices (`market/*Test`), never against PNJ or Vietcombank.
+
+## Investment profile advisor
+
+`advisor/` and `api/AdvisorController` serve `POST /api/advisor/analysis?ai=true|false`. The user asked for it on 2026-10-25.
+
+- The frontend posts an aggregated `ProfileInput`: VND per `AssetClass` (`SAFE`, `GOLD`, `FX`, `FUND`, `ETF`, `STOCK`, `CRYPTO`, `OTHER`), debts, the emergency fund and its wallets, and average monthly income and expenses. It carries no wallet names or IDs; the grouping rules live in the frontend.
+- The endpoint is a POST only because the profile travels in the body. Nothing is written, stored or logged.
+- `ProfileCalculator` compares the profile with the four fixed `RiskScenario` templates (Thận trọng, Cân bằng, Tăng trưởng, Mạo hiểm, each adding up to 100%). It returns, per class, target and current percent, the VND change needed, emergency-fund months against each target, and the closest scenario (L1 distance). `OTHER` counts as `FUND` against the templates.
+  - The user chose (2026-10-25) fixed templates plus LLM comments, so every figure is the app's own.
+  - The templates are generic reference allocations, not advice. The response carries a disclaimer.
+- With `ai=true`, `LmStudioClient` asks LM Studio's OpenAI-compatible `/v1/chat/completions` for a review in a JSON schema (`response_format: json_schema`): `profileSummary`, `riskReading`, `scenarioComments`, `warnings`.
+  - It sends `reasoning_effort: "none"`; otherwise gemma 4 spends its token budget thinking.
+  - The prompt (`AdvisorPrompt`) holds only the computed figures, in millions, with the direction spelled out ("tăng"/"giảm"), because the small model misreads signed deltas.
+  - If the call fails or the answer isn't valid, the analysis still comes back, with `aiError`.
+- Settings `pefima.advisor.*`:
+  - `enabled=true` is required (in `pefima-local.properties`); without it there are no beans and the endpoint answers 503.
+  - `base-url` defaults to `http://127.0.0.1:1234` and **must be loopback**. `AdvisorConfiguration` refuses to start otherwise, so profile figures never leave the machine.
+  - `model` defaults to `google/gemma-4-e4b`, the user's choice.
+  - `timeout` defaults to `285s` and `max-tokens` to `600`.
+- On this machine (GTX 1050 4 GB, 16 GB RAM) gemma runs mostly on the CPU at about 3 tokens a second. One review took about 3–4 minutes. Keep `timeout` below the frontend's 300 s fetch limit.
+- Start LM Studio with `lms server start` and `lms load google/gemma-4-e4b`.
+- Test with `MockRestServiceServer` and synthetic profiles (`advisor/*Test`), never against LM Studio.
 
 ## Spring Boot 4 notes
 

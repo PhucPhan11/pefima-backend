@@ -6,6 +6,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import com.ceu.pefima.backend.advisor.InvalidProfileException;
 import com.ceu.pefima.backend.market.MarketPriceUnavailableException;
 import com.ceu.pefima.backend.source.PefimaSourceException;
 import com.ceu.pefima.backend.source.UnknownSnapshotException;
@@ -14,7 +15,7 @@ import com.ceu.pefima.backend.source.UnknownSnapshotException;
  * Maps source and market-price failures to RFC 9457 problem responses. Their
  * exception messages never contain financial values, so they are safe to return.
  */
-@RestControllerAdvice(assignableTypes = { PefimaDataController.class, MarketController.class })
+@RestControllerAdvice(assignableTypes = { PefimaDataController.class, MarketController.class, AdvisorController.class })
 class ApiExceptionHandler {
 
     @ExceptionHandler
@@ -39,6 +40,12 @@ class ApiExceptionHandler {
     @ResponseStatus(HttpStatus.BAD_GATEWAY)
     ProblemDetail marketPriceUnavailable(MarketPriceUnavailableException ex) {
         return problem(HttpStatus.BAD_GATEWAY, "Market price unavailable", ex.getMessage());
+    }
+
+    @ExceptionHandler
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    ProblemDetail invalidProfile(InvalidProfileException ex) {
+        return problem(HttpStatus.BAD_REQUEST, "Invalid profile", ex.getMessage());
     }
 
     private static ProblemDetail problem(HttpStatus status, String title, String detail) {
