@@ -42,7 +42,7 @@ Run from the repository root in PowerShell:
 & "$env:USERPROFILE\.jdks\azul-27\bin\java.exe" -jar target\backend-0.0.1-SNAPSHOT.jar --pefima.source.sqlite.path=../pefima-data/exports/clean/notion-clean.sqlite3
 ```
 
-- The IDEs don't use the toolchain. IntelliJ's project SDK is `azul-27` (`.idea/misc.xml`, local). The VS Code workspace `../pefima-frontend/pefima.code-workspace` maps `JavaSE-27` to the same folder with `java.configuration.runtimes`, because VS Code Java doesn't scan `~/.jdks`.
+- The IDEs don't use the toolchain. IntelliJ's project SDK is `azul-27` (`.idea/misc.xml`, local). The VS Code workspace `../pefima-frontend/pefima.code-workspace` maps `JavaSE-27` to the same folder with `java.configuration.runtimes`, because VS Code Java doesn't scan `~/.jdks`. Its backend launch also sets `javaExec` to that JDK's `java.exe`: the Java extension otherwise launched with `JAVA_HOME` (Temurin 21), which can't load the Java 27 classes Maven writes into the shared `target/classes` (`UnsupportedClassVersionError`, class file version 71; fixed 2026-10-25).
 
 Don't change system or user environment variables yourself. Tell the user instead.
 
