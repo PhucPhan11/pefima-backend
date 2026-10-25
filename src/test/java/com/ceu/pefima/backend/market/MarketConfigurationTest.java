@@ -15,8 +15,8 @@ class MarketConfigurationTest {
         .withUserConfiguration(MarketConfiguration.class);
 
     @Test
-    void registersNothingWithoutAQuantity() {
-        this.contextRunner.run((context) -> {
+    void registersNothingUnlessEnabled() {
+        this.contextRunner.withPropertyValues("pefima.gold.quantity-chi=2").run((context) -> {
             assertThat(context).hasNotFailed();
             assertThat(context).doesNotHaveBean(GoldValuationService.class);
             assertThat(context).doesNotHaveBean(GoldPriceClient.class);
@@ -24,12 +24,12 @@ class MarketConfigurationTest {
     }
 
     @Test
-    void registersTheValuationWithPnjDefaults() {
-        this.contextRunner.withPropertyValues("pefima.gold.quantity-chi=2.5").run((context) -> {
+    void registersThePriceFeedWithPnjDefaults() {
+        this.contextRunner.withPropertyValues("pefima.gold.enabled=true").run((context) -> {
             assertThat(context).hasSingleBean(GoldValuationService.class);
             assertThat(context).hasSingleBean(GoldPriceClient.class);
             GoldProperties properties = context.getBean(GoldProperties.class);
-            assertThat(properties.quantityChi()).isEqualByComparingTo("2.5");
+            assertThat(properties.quantityChi()).isNull();
             assertThat(properties.productCode()).isEqualTo("N24K");
             assertThat(properties.priceUrl())
                 .isEqualTo(URI.create("https://edge-api.pnj.io/ecom-frontend/v1/get-gold-price?zone=00"));

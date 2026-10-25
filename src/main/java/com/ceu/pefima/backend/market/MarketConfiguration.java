@@ -8,11 +8,11 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 /**
- * Registers the gold valuation only when a gold quantity is configured, so the
- * app makes no outbound call otherwise.
+ * Registers the gold price feed only when {@code pefima.gold.enabled} is true, so
+ * the app makes no outbound call otherwise.
  */
 @Configuration(proxyBeanMethods = false)
-@ConditionalOnProperty(prefix = "pefima.gold", name = "quantity-chi")
+@ConditionalOnProperty(prefix = "pefima.gold", name = "enabled", havingValue = "true")
 @EnableConfigurationProperties(GoldProperties.class)
 public class MarketConfiguration {
 

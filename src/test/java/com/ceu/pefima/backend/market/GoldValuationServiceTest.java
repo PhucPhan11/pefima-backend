@@ -33,6 +33,15 @@ class GoldValuationServiceTest {
     }
 
     @Test
+    void carriesThePriceOnlyWithoutAQuantity() {
+        GoldValuation valuation = new GoldValuationService(this.client, null, Duration.ofMinutes(15), this.clock)
+            .current();
+        assertThat(valuation.buyPerChi()).isEqualByComparingTo("1000000");
+        assertThat(valuation.quantityChi()).isNull();
+        assertThat(valuation.marketValue()).isNull();
+    }
+
+    @Test
     void reusesTheQuoteWithinTheTtlAndRefreshesAfterIt() {
         this.service.current();
         this.clock.advance(Duration.ofMinutes(15));

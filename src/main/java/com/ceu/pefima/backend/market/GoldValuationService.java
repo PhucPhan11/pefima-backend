@@ -7,7 +7,8 @@ import java.time.Duration;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Values the configured gold holding at the current buy price. The last quote
+ * Today's gold buy price, and the configured holding's value when a quantity is
+ * set (the holding normally comes from the Gold wallet in chỉ). The last quote
  * is kept in memory and reused until it is older than the cache TTL, so opening
  * a page refreshes the price at most once per TTL.
  */
@@ -17,7 +18,7 @@ public class GoldValuationService {
 
     private final GoldPriceClient client;
 
-    private final BigDecimal quantityChi;
+    private final @Nullable BigDecimal quantityChi;
 
     private final Duration cacheTtl;
 
@@ -25,7 +26,7 @@ public class GoldValuationService {
 
     private @Nullable GoldQuote cached;
 
-    GoldValuationService(GoldPriceClient client, BigDecimal quantityChi, Duration cacheTtl, Clock clock) {
+    GoldValuationService(GoldPriceClient client, @Nullable BigDecimal quantityChi, Duration cacheTtl, Clock clock) {
         this.client = client;
         this.quantityChi = quantityChi;
         this.cacheTtl = cacheTtl;
@@ -34,8 +35,9 @@ public class GoldValuationService {
 
     public GoldValuation current() {
         GoldQuote quote = quote();
-        return new GoldValuation(this.quantityChi, quote.buyPerChi(), quote.sellPerChi(),
-                this.quantityChi.multiply(quote.buyPerChi()), quote.productCode(), quote.productName(),
+        BigDecimal quantity = this.quantityChi;
+        return new GoldValuation(quantity, quote.buyPerChi(), quote.sellPerChi(),
+                quantity == null ? null : quantity.multiply(quote.buyPerChi()), quote.productCode(), quote.productName(),
                 quote.quotedAt(), quote.fetchedAt(), SOURCE);
     }
 

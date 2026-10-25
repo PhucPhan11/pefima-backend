@@ -7,13 +7,14 @@ import java.time.LocalDateTime;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Market value of the configured gold holding at today's buy price. It is a live
- * figure, not tied to any export snapshot.
+ * Today's gold price, and the configured holding's value when a quantity is set.
+ * A live figure, not tied to any export snapshot.
  *
- * @param marketValue {@code quantityChi × buyPerChi}, in VND
+ * @param quantityChi the configured quantity, or {@code null}
+ * @param marketValue {@code quantityChi × buyPerChi} in VND, or {@code null} without a quantity
  * @param source price feed name
  */
-public record GoldValuation(BigDecimal quantityChi, BigDecimal buyPerChi, @Nullable BigDecimal sellPerChi,
-        BigDecimal marketValue, String productCode, String productName, @Nullable LocalDateTime quotedAt,
+public record GoldValuation(@Nullable BigDecimal quantityChi, BigDecimal buyPerChi, @Nullable BigDecimal sellPerChi,
+        @Nullable BigDecimal marketValue, String productCode, String productName, @Nullable LocalDateTime quotedAt,
         Instant fetchedAt, String source) {
 }

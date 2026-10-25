@@ -63,7 +63,7 @@ src/main/java/com/ceu/pefima/backend/
   source/                          read-only ports (*Source interfaces) + exceptions
   source/model/                    records returned by the ports (BigDecimal, LocalDate, Provenance)
   source/sqlite/                   adapter over the notion_cleanup SQLite DB + SqliteSourceConfiguration
-  market/                          gold valuation (PNJ) and exchange rates (Vietcombank), the only outbound HTTP calls,
+  market/                          gold price (PNJ) and exchange rates (Vietcombank), the only outbound HTTP calls,
                                    + MarketConfiguration / FxConfiguration and the shared MarketHttp client
 src/main/resources/application.properties
 pefima-local.properties            git-ignored local settings (real holdings), imported by application.properties
@@ -102,11 +102,11 @@ The backend collects data from `pefima-data` through source-agnostic ports in `s
 
 ## Market prices
 
-`market/` values the user's gold holding at today's price; `api/MarketController` serves it as `GET /api/market/gold`. It was added at the user's request on 2026-10-25, and it is the app's first service and only outbound HTTP call.
+`market/` serves today's gold price per chỉ; `api/MarketController` serves it as `GET /api/market/gold`. It was added at the user's request on 2026-10-25, and it is the app's first service and only outbound HTTP call.
 
-- It's on only when `pefima.gold.quantity-chi` is set. Without that, no beans are created, no call is made, and the endpoint answers 503. The real quantity lives in the git-ignored `pefima-local.properties`, which `application.properties` loads with `spring.config.import=optional:file:./pefima-local.properties` from the working directory (`pefima-backend`). Never commit it.
+- It's on only when `pefima.gold.enabled=true`. Without that, no beans are created, no call is made, and the endpoint answers 503. The holding is the Gold wallet's balance in Notion, which is in chỉ (the user's data, confirmed 2026-10-25), so the frontend multiplies it by `buyPerChi`. `pefima.gold.quantity-chi` is optional and only fills `quantityChi`/`marketValue`, which are otherwise `null`. Local settings live in the git-ignored `pefima-local.properties`, which `application.properties` loads with `spring.config.import=optional:file:./pefima-local.properties` from the working directory (`pefima-backend`). Never commit it.
 - `PnjGoldPriceClient` reads PNJ's public price list (`pefima.gold.price-url`; no key) and takes the row whose `masp` equals `pefima.gold.product-code` (default `N24K`, "Nhẫn Trơn PNJ 999.9"). PNJ quotes thousand VND per chỉ, so prices are multiplied by 1000, and an unquoted price arrives as `""`. `updateDate` is `dd/MM/yyyy HH:mm:ss` in Vietnam local time and is returned as-is (`quotedAt`).
-- The user chose the buy price (giá mua vào): `marketValue = quantityChi × buyPerChi`. SJC's endpoint sits behind a Cloudflare challenge, so it isn't used.
+- The user chose the buy price (giá mua vào). SJC's endpoint sits behind a Cloudflare challenge, so it isn't used.
 - `GoldValuationService` keeps the last quote in memory for `pefima.gold.cache-ttl` (default 15 minutes). It has no scheduler and no history; a failed fetch is not cached. Failures throw `MarketPriceUnavailableException` (value-free message), which `ApiExceptionHandler` maps to 502.
 - The valuation is live, not tied to a snapshot, and it never changes snapshot data.
 - Exchange rates (added 2026-10-25): `GET /api/market/fx-rates` returns Vietcombank's rates for the codes in `pefima.fx.currencies` (also kept in `pefima-local.properties`; without it, no beans and 503).

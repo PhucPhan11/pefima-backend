@@ -50,6 +50,17 @@ class MarketControllerTest {
     }
 
     @Test
+    void returnsThePriceOnlyWithoutAQuantity() {
+        given(this.gold.current()).willReturn(new GoldValuation(null, new BigDecimal("1000000"), null, null, "N24K",
+                "Ring gold 999.9", null, Instant.parse("2026-01-04T03:00:00Z"), "PNJ"));
+        assertThat(this.mvc.get().uri("/api/market/gold")).hasStatusOk()
+            .bodyJson()
+            .isLenientlyEqualTo("""
+                    {"quantityChi":null,"buyPerChi":1000000,"marketValue":null,"source":"PNJ"}
+                    """);
+    }
+
+    @Test
     void answers502WhenThePriceIsUnavailable() {
         given(this.gold.current()).willThrow(new MarketPriceUnavailableException("PNJ lists no gold product N24K"));
         assertThat(this.mvc.get().uri("/api/market/gold")).hasStatus(HttpStatus.BAD_GATEWAY)

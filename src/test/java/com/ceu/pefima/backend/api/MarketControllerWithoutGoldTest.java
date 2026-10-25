@@ -16,12 +16,12 @@ class MarketControllerWithoutGoldTest {
     private MockMvcTester mvc;
 
     @Test
-    void answers503WhenNoGoldQuantityIsConfigured() {
+    void answers503WhenGoldIsNotEnabled() {
         assertThat(this.mvc.get().uri("/api/market/gold")).hasStatus(HttpStatus.SERVICE_UNAVAILABLE)
             .bodyJson()
             .extractingPath("$.detail")
             .asString()
-            .contains("pefima.gold.quantity-chi");
+            .contains("pefima.gold.enabled");
     }
 
     @Test

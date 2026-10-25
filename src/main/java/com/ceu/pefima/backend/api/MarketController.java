@@ -32,13 +32,13 @@ class MarketController {
     }
 
     @GetMapping("/gold")
-    @Operation(summary = "Value the gold holding at today's price",
-            description = "Configured quantity in chỉ times PNJ's current buy price for ring gold 999.9. "
-                    + "The quote is cached for a few minutes.")
+    @Operation(summary = "Today's gold price",
+            description = "PNJ's current buy and sell price per chỉ for ring gold 999.9, plus the value of "
+                    + "pefima.gold.quantity-chi when it is set. The quote is cached for a few minutes.")
     GoldValuation gold() {
         GoldValuationService service = this.gold.getIfAvailable();
         if (service == null) {
-            throw new SourceNotConfiguredException("Gold valuation is not configured. Set pefima.gold.quantity-chi "
+            throw new SourceNotConfiguredException("The gold price is not configured. Set pefima.gold.enabled=true "
                     + "(for example in pefima-local.properties) and restart.");
         }
         return service.current();
