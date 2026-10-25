@@ -24,4 +24,13 @@ class MarketControllerWithoutGoldTest {
             .contains("pefima.gold.quantity-chi");
     }
 
+    @Test
+    void answers503WhenNoCurrencyIsConfigured() {
+        assertThat(this.mvc.get().uri("/api/market/fx-rates")).hasStatus(HttpStatus.SERVICE_UNAVAILABLE)
+            .bodyJson()
+            .extractingPath("$.detail")
+            .asString()
+            .contains("pefima.fx.currencies");
+    }
+
 }

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this repository is
 
-`pefima-backend` is the (future) Spring Boot service for **PeFiMa**, a personal-finance manager whose data currently lives in Notion and is archived in the sibling repository `..\pefima-data`. So far it has a read-only data-source layer (see "Data source"), a read-only REST API with Swagger UI on top of it (see "REST API"), and a live gold valuation (see "Market prices"). There is no persistence of its own, security, or profiles yet, so any other architecture you add is the first of its kind. Confirm the approach with the user before introducing a new layer or dependency.
+`pefima-backend` is the (future) Spring Boot service for **PeFiMa**, a personal-finance manager whose data currently lives in Notion and is archived in the sibling repository `..\pefima-data`. So far it has a read-only data-source layer (see "Data source"), a read-only REST API with Swagger UI on top of it (see "REST API"), and live market prices for gold and foreign currencies (see "Market prices"). There is no persistence of its own, security, or profiles yet, so any other architecture you add is the first of its kind. Confirm the approach with the user before introducing a new layer or dependency.
 
 - Remote: `https://github.com/PhucPhan11/pefima-backend.git`, default branch `main`.
 - Commit style so far: Conventional Commits (`feat: ...`).
@@ -63,7 +63,8 @@ src/main/java/com/ceu/pefima/backend/
   source/                          read-only ports (*Source interfaces) + exceptions
   source/model/                    records returned by the ports (BigDecimal, LocalDate, Provenance)
   source/sqlite/                   adapter over the notion_cleanup SQLite DB + SqliteSourceConfiguration
-  market/                          gold valuation at PNJ's live price (the only outbound HTTP call) + MarketConfiguration
+  market/                          gold valuation (PNJ) and exchange rates (Vietcombank), the only outbound HTTP calls,
+                                   + MarketConfiguration / FxConfiguration and the shared MarketHttp client
 src/main/resources/application.properties
 pefima-local.properties            git-ignored local settings (real holdings), imported by application.properties
 src/test/java/com/ceu/pefima/backend/api/             @WebMvcTest controller tests + OpenAPI/Swagger UI test
@@ -108,7 +109,12 @@ The backend collects data from `pefima-data` through source-agnostic ports in `s
 - The user chose the buy price (giá mua vào): `marketValue = quantityChi × buyPerChi`. SJC's endpoint sits behind a Cloudflare challenge, so it isn't used.
 - `GoldValuationService` keeps the last quote in memory for `pefima.gold.cache-ttl` (default 15 minutes). It has no scheduler and no history; a failed fetch is not cached. Failures throw `MarketPriceUnavailableException` (value-free message), which `ApiExceptionHandler` maps to 502.
 - The valuation is live, not tied to a snapshot, and it never changes snapshot data.
-- Test it with `MockRestServiceServer` and synthetic prices (`market/*Test`), never against PNJ.
+- Exchange rates (added 2026-10-25): `GET /api/market/fx-rates` returns Vietcombank's rates for the codes in `pefima.fx.currencies` (also kept in `pefima-local.properties`; without it, no beans and 503).
+  - `VietcombankRateClient` reads the public XML at `pefima.fx.rate-url` with the JDK DOM parser, DOCTYPE disallowed. Rates use `,` as the thousands separator, `"-"` means not quoted, and `DateTime` is `M/d/yyyy h:mm:ss a` (US locale, Vietnam local time).
+  - The user chose the cash buy rate (`Buy`); a currency the bank doesn't buy in cash falls back to the transfer buy rate (`rateType` says which). Configured codes the feed doesn't list or doesn't buy go to `missing`.
+  - The feed asks for at most one request every 5 minutes, so `ExchangeRateService` never caches for less than that (`pefima.fx.cache-ttl`, default 15 minutes).
+  - The backend returns rates only. Which wallet holds which currency is the frontend's `PEFIMA_FX_WALLETS`.
+- Test it with `MockRestServiceServer` and synthetic prices (`market/*Test`), never against PNJ or Vietcombank.
 
 ## Spring Boot 4 notes
 

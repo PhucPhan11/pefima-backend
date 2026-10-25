@@ -6,8 +6,6 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.http.client.SimpleClientHttpRequestFactory;
-import org.springframework.web.client.RestClient;
 
 /**
  * Registers the gold valuation only when a gold quantity is configured, so the
@@ -20,15 +18,8 @@ public class MarketConfiguration {
 
     @Bean
     GoldPriceClient goldPriceClient(GoldProperties properties) {
-        SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
-        requestFactory.setConnectTimeout(properties.timeout());
-        requestFactory.setReadTimeout(properties.timeout());
-        RestClient restClient = RestClient.builder()
-            .requestFactory(requestFactory)
-            .defaultHeader("User-Agent", "Mozilla/5.0 (compatible; pefima-backend)")
-            .build();
-        return new PnjGoldPriceClient(restClient, properties.priceUrl(), properties.productCode(),
-                Clock.systemUTC());
+        return new PnjGoldPriceClient(MarketHttp.restClient(properties.timeout()), properties.priceUrl(),
+                properties.productCode(), Clock.systemUTC());
     }
 
     @Bean

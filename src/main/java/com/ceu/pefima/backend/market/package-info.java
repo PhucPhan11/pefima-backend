@@ -1,7 +1,8 @@
 /**
- * Live market prices used to value holdings that the Notion data records only
- * at cost. This is the backend's only outbound HTTP call; it is enabled only
- * when {@code pefima.gold.quantity-chi} is set.
+ * Live market prices: gold, valued from a configured quantity, and exchange
+ * rates for foreign-currency wallets. These are the backend's only outbound HTTP
+ * calls; each feed is enabled only when its setting ({@code pefima.gold.quantity-chi},
+ * {@code pefima.fx.currencies}) is present.
  */
 @NullMarked
 package com.ceu.pefima.backend.market;
