@@ -31,3 +31,6 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### Local settings (real holdings) ###
+pefima-local.properties

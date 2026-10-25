@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this repository is
 
-`pefima-backend` is the (future) Spring Boot service for **PeFiMa**, a personal-finance manager whose data currently lives in Notion and is archived in the sibling repository `..\pefima-data`. So far it has a read-only data-source layer (see "Data source") and a read-only REST API with Swagger UI on top of it (see "REST API"). There are no services, persistence of its own, security, or profiles yet, so any other architecture you add is the first of its kind. Confirm the approach with the user before introducing a new layer or dependency.
+`pefima-backend` is the (future) Spring Boot service for **PeFiMa**, a personal-finance manager whose data currently lives in Notion and is archived in the sibling repository `..\pefima-data`. So far it has a read-only data-source layer (see "Data source"), a read-only REST API with Swagger UI on top of it (see "REST API"), and a live gold valuation (see "Market prices"). There is no persistence of its own, security, or profiles yet, so any other architecture you add is the first of its kind. Confirm the approach with the user before introducing a new layer or dependency.
 
 - Remote: `https://github.com/PhucPhan11/pefima-backend.git`, default branch `main`.
 - Commit style so far: Conventional Commits (`feat: ...`).
@@ -63,7 +63,9 @@ src/main/java/com/ceu/pefima/backend/
   source/                          read-only ports (*Source interfaces) + exceptions
   source/model/                    records returned by the ports (BigDecimal, LocalDate, Provenance)
   source/sqlite/                   adapter over the notion_cleanup SQLite DB + SqliteSourceConfiguration
+  market/                          gold valuation at PNJ's live price (the only outbound HTTP call) + MarketConfiguration
 src/main/resources/application.properties
+pefima-local.properties            git-ignored local settings (real holdings), imported by application.properties
 src/test/java/com/ceu/pefima/backend/api/             @WebMvcTest controller tests + OpenAPI/Swagger UI test
 src/test/java/com/ceu/pefima/backend/source/sqlite/   adapter tests + SyntheticCleanupDatabase fixture builder
 src/test/resources/pefima-data/schema-v1.2.sql        verbatim copy of pefima-data/notion_cleanup/schema.sql
@@ -96,6 +98,17 @@ The backend collects data from `pefima-data` through source-agnostic ports in `s
 - Controller tests use `@WebMvcTest` + `@MockitoBean` + `MockMvcTester` with synthetic records. In Boot 4, `WebMvcTest`/`AutoConfigureMockMvc` live in `org.springframework.boot.webmvc.test.autoconfigure`.
 - In this app, `.claude/launch.json` (in the parent `pefima` folder) runs the built jar on port 8080 with the SQLite source. Rebuild the jar (`.\mvnw.cmd package`) before relaunching.
 - In IntelliJ, the shared run configs in `.run/` cover the same setup: `Pefima Backend` (Spring Boot with the SQLite source), `Pefima Frontend` (`npm run dev` in `../pefima-frontend`), and the compound `Pefima All`, which starts both.
+
+## Market prices
+
+`market/` values the user's gold holding at today's price; `api/MarketController` serves it as `GET /api/market/gold`. It was added at the user's request on 2026-10-25, and it is the app's first service and only outbound HTTP call.
+
+- It's on only when `pefima.gold.quantity-chi` is set. Without that, no beans are created, no call is made, and the endpoint answers 503. The real quantity lives in the git-ignored `pefima-local.properties`, which `application.properties` loads with `spring.config.import=optional:file:./pefima-local.properties` from the working directory (`pefima-backend`). Never commit it.
+- `PnjGoldPriceClient` reads PNJ's public price list (`pefima.gold.price-url`; no key) and takes the row whose `masp` equals `pefima.gold.product-code` (default `N24K`, "Nhẫn Trơn PNJ 999.9"). PNJ quotes thousand VND per chỉ, so prices are multiplied by 1000, and an unquoted price arrives as `""`. `updateDate` is `dd/MM/yyyy HH:mm:ss` in Vietnam local time and is returned as-is (`quotedAt`).
+- The user chose the buy price (giá mua vào): `marketValue = quantityChi × buyPerChi`. SJC's endpoint sits behind a Cloudflare challenge, so it isn't used.
+- `GoldValuationService` keeps the last quote in memory for `pefima.gold.cache-ttl` (default 15 minutes). It has no scheduler and no history; a failed fetch is not cached. Failures throw `MarketPriceUnavailableException` (value-free message), which `ApiExceptionHandler` maps to 502.
+- The valuation is live, not tied to a snapshot, and it never changes snapshot data.
+- Test it with `MockRestServiceServer` and synthetic prices (`market/*Test`), never against PNJ.
 
 ## Spring Boot 4 notes
 
