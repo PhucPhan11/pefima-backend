@@ -13,6 +13,7 @@ import org.junit.jupiter.api.io.TempDir;
 import com.ceu.pefima.backend.source.UnknownSnapshotException;
 import com.ceu.pefima.backend.source.model.BudgetEnvelope;
 import com.ceu.pefima.backend.source.model.ExportSnapshot;
+import com.ceu.pefima.backend.source.model.MonthlyBalance;
 import com.ceu.pefima.backend.source.model.Provenance;
 import com.ceu.pefima.backend.source.model.ReviewIssue;
 import com.ceu.pefima.backend.source.model.Transaction;
@@ -21,13 +22,17 @@ import com.ceu.pefima.backend.source.model.WalletAccount;
 
 import static com.ceu.pefima.backend.source.sqlite.SyntheticCleanupDatabase.BUDGET;
 import static com.ceu.pefima.backend.source.sqlite.SyntheticCleanupDatabase.EMERGENCY_TARGET;
+import static com.ceu.pefima.backend.source.sqlite.SyntheticCleanupDatabase.EMERGENCY_WALLET;
 import static com.ceu.pefima.backend.source.sqlite.SyntheticCleanupDatabase.EMPTY_SNAPSHOT;
 import static com.ceu.pefima.backend.source.sqlite.SyntheticCleanupDatabase.EXPENSE;
+import static com.ceu.pefima.backend.source.sqlite.SyntheticCleanupDatabase.FUND_COMPANY;
 import static com.ceu.pefima.backend.source.sqlite.SyntheticCleanupDatabase.INCOME;
+import static com.ceu.pefima.backend.source.sqlite.SyntheticCleanupDatabase.MARCH_BALANCE;
 import static com.ceu.pefima.backend.source.sqlite.SyntheticCleanupDatabase.ROOT;
 import static com.ceu.pefima.backend.source.sqlite.SyntheticCleanupDatabase.SNAPSHOT;
 import static com.ceu.pefima.backend.source.sqlite.SyntheticCleanupDatabase.TRANSFER;
 import static com.ceu.pefima.backend.source.sqlite.SyntheticCleanupDatabase.WALLET;
+import static com.ceu.pefima.backend.source.sqlite.SyntheticCleanupDatabase.YEAR_BALANCE;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 
@@ -51,7 +56,7 @@ class SqliteSourcesTest {
     void describesContract() {
         assertThat(new SqliteSnapshotSource(this.database).describeContract())
             .satisfies((contract) -> {
-                assertThat(contract.schemaVersion()).isEqualTo("1.0");
+                assertThat(contract.schemaVersion()).isEqualTo("1.2");
                 assertThat(contract.mappingFileHash()).isEqualTo("mapping-hash-0001");
             });
     }
@@ -74,10 +79,22 @@ class SqliteSourcesTest {
     }
 
     @Test
-    void readsWalletAccounts() {
+    void readsWalletAccountsWithTheirFundCompanyTitleAndEmergencyFlagOnly() {
         assertThat(new SqliteWalletAccountSource(this.database).findBySnapshot(SNAPSHOT)).containsExactly(
                 new WalletAccount(WALLET, "Synthetic Wallet", "[\"Cash\"]", "Yes", new BigDecimal("42.00"), null,
-                        new BigDecimal("42.00"), null, null, PROVENANCE));
+                        new BigDecimal("42.00"), null, null, FUND_COMPANY, false, PROVENANCE),
+                new WalletAccount(EMERGENCY_WALLET, "Synthetic Bank", null, null, new BigDecimal("7.00"), null, null,
+                        null, null, null, true, PROVENANCE));
+    }
+
+    @Test
+    void readsMonthlyBalancesWithMonthsBeforeTheYearRow() {
+        assertThat(new SqliteMonthlyBalanceSource(this.database).findBySnapshot(SNAPSHOT)).containsExactly(
+                new MonthlyBalance(MARCH_BALANCE, "March", 3, new BigDecimal("1000"), new BigDecimal("12.34"),
+                        new BigDecimal("987.66"), null, PROVENANCE),
+                new MonthlyBalance(YEAR_BALANCE, "Year", null, new BigDecimal("1000"), new BigDecimal("12.34"),
+                        new BigDecimal("987.66"), new BigDecimal("987.66"), PROVENANCE));
+        assertThat(new SqliteMonthlyBalanceSource(this.database).findBySnapshot(EMPTY_SNAPSHOT)).isEmpty();
     }
 
     @Test

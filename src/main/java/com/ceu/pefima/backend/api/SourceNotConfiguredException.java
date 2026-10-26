@@ -10,4 +10,8 @@ class SourceNotConfiguredException extends RuntimeException {
                 + "SQLite database and restart.");
     }
 
+    SourceNotConfiguredException(String message) {
+        super(message);
+    }
+
 }

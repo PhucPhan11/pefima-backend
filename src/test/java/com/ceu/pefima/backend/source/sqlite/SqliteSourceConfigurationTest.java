@@ -14,6 +14,7 @@ import org.springframework.dao.DataAccessException;
 
 import com.ceu.pefima.backend.source.BudgetEnvelopeSource;
 import com.ceu.pefima.backend.source.PefimaSourceException;
+import com.ceu.pefima.backend.source.MonthlyBalanceSource;
 import com.ceu.pefima.backend.source.ReviewIssueSource;
 import com.ceu.pefima.backend.source.SnapshotSource;
 import com.ceu.pefima.backend.source.TransactionSource;
@@ -49,6 +50,7 @@ class SqliteSourceConfigurationTest {
             assertThat(context).hasSingleBean(WalletAccountSource.class);
             assertThat(context).hasSingleBean(TransactionSource.class);
             assertThat(context).hasSingleBean(ReviewIssueSource.class);
+            assertThat(context).hasSingleBean(MonthlyBalanceSource.class);
             assertThat(context).doesNotHaveBean(DataSource.class);
             assertThat(context.getBean(SnapshotSource.class).listSnapshots()).hasSize(2);
         });
@@ -91,7 +93,7 @@ class SqliteSourceConfigurationTest {
         assertThat(writable.jdbc()
             .sql("SELECT value FROM schema_meta WHERE key = 'schema_version'")
             .query(String.class)
-            .single()).isEqualTo("1.0");
+            .single()).isEqualTo("1.2");
     }
 
 }
